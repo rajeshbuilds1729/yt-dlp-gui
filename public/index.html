@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yt-dlp GUI</title>
+<style>
+  :root {
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2129; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff; --green:#3fb950;
+    --red:#f85149; --yellow:#d29922; --radius:10px;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--text);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  a { color:var(--accent); }
+  header {
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    padding:12px 20px; background:var(--panel); border-bottom:1px solid var(--border);
+    position:sticky; top:0; z-index:20;
+  }
+  header h1 { font-size:16px; margin:0; font-weight:600; letter-spacing:.2px; }
+  .badge {
+    font-size:11px; padding:2px 8px; border-radius:99px; border:1px solid var(--border);
+    color:var(--muted); background:var(--panel2); white-space:nowrap;
+  }
+  .badge.ok { color:var(--green); border-color:#1f6f33; }
+  .badge.bad { color:var(--red); border-color:#7d2c28; }
+  .spacer { flex:1; }
+  main { max-width:1180px; margin:0 auto; padding:20px; }
+  .card {
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:var(--radius); padding:16px; margin-bottom:18px;
+  }
+  .card h2 { margin:0 0 12px; font-size:14px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  .grow { flex:1; min-width:200px; }
+  input[type=text], input[type=number], select, textarea {
+    width:100%; padding:9px 11px; background:#0b0f14; color:var(--text);
+    border:1px solid var(--border); border-radius:8px; font-size:14px; font-family:inherit;
+  }
+  input:focus, select:focus, textarea:focus { outline:none; border-color:var(--accent); }
+  textarea { resize:vertical; font-family:ui-monospace,Consolas,monospace; font-size:12px; }
+  label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+  .field { margin-bottom:12px; }
+  button {
+    padding:9px 14px; background:var(--panel2); color:var(--text); cursor:pointer;
+    border:1px solid var(--border); border-radius:8px; font-size:13px; font-weight:500;
+    font-family:inherit; white-space:nowrap;
+  }
+  button:hover:not(:disabled) { background:#252c35; border-color:#484f58; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#07131f; font-weight:600; }
+  button.primary:hover:not(:disabled) { background:#79b8ff; }
+  button.danger { color:var(--red); border-color:#5d2b28; }
+  button.sm { padding:5px 9px; font-size:12px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:12px; }
+  .check { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text); margin:0; cursor:pointer; }
+  .check input { width:auto; accent-color:var(--accent); }
+  details { border:1px solid var(--border); border-radius:8px; padding:10px 12px; background:var(--panel2); }
+  summary { cursor:pointer; font-size:13px; color:var(--muted); user-select:none; }
+  summary:hover { color:var(--text); }
+  .hint { font-size:12px; color:var(--muted); margin:6px 0 0; }
+  .error { color:var(--red); font-size:13px; margin-top:8px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); font-weight:500; font-size:12px; }
+  tr.selected td { background:#12263f; }
+  .tablewrap { max-height:340px; overflow:auto; border:1px solid var(--border); border-radius:8px; }
+  .job { border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px; background:var(--panel2); }
+  .jobhead { display:flex; gap:10px; align-items:flex-start; }
+  .jobtitle { font-weight:600; flex:1; min-width:0; overflow-wrap:anywhere; }
+  .jobmeta { font-size:12px; color:var(--muted); margin-top:3px; overflow-wrap:anywhere; }
+  .bar { height:6px; background:#0b0f14; border-radius:99px; overflow:hidden; margin:10px 0 6px; border:1px solid var(--border); }
+  .bar > div { height:100%; background:var(--accent); transition:width .3s ease; }
+  .bar.done > div { background:var(--green); }
+  .bar.error > div { background:var(--red); }
+  .stats { display:flex; gap:14px; font-size:12px; color:var(--muted); flex-wrap:wrap; }
+  .stats b { color:var(--text); font-weight:600; }
+  .status { font-size:11px; text-transform:uppercase; letter-spacing:.5px; padding:2px 8px; border-radius:99px; border:1px solid var(--border); white-space:nowrap; }
+  .status.queued{color:var(--muted);} .status.running{color:var(--accent);border-color:#1f4b7a;}
+  .status.done{color:var(--green);border-color:#1f6f33;} .status.error{color:var(--red);border-color:#7d2c28;}
+  .status.paused,.status.pausing{color:var(--yellow);border-color:#6b5216;}
+  .status.cancelled,.status.cancelling{color:var(--muted);}
+  pre.log {
+    max-height:220px; overflow:auto; background:#0b0f14; border:1px solid var(--border);
+    border-radius:8px; padding:10px; font-size:11.5px; line-height:1.45; margin:10px 0 0;
+    white-space:pre-wrap; overflow-wrap:anywhere; color:#b9c4d0;
+  }
+  pre.log .e { color:#ff9492; }
+  .empty { color:var(--muted); font-size:13px; text-align:center; padding:22px 0; }
+  .toast {
+    position:fixed; bottom:18px; right:18px; z-index:100; display:flex; flex-direction:column; gap:8px;
+  }
+  .toast > div {
+    background:var(--panel2); border:1px solid var(--border); border-left:3px solid var(--accent);
+    padding:10px 14px; border-radius:8px; font-size:13px; max-width:340px;
+    box-shadow:0 8px 24px rgba(0,0,0,.4);
+  }
+  .toast > div.err { border-left-color:var(--red); color:#ff9492; }
+  .files a { display:flex; justify-content:space-between; gap:10px; padding:7px 9px; border-radius:6px; text-decoration:none; color:var(--text); }
+  .files a:hover { background:var(--panel2); }
+  .files .sz { color:var(--muted); font-size:12px; white-space:nowrap; }
+  .hidden { display:none !important; }
+  .pillrow { display:flex; gap:6px; flex-wrap:wrap; }
+  .pill { font-size:11px; padding:2px 7px; border-radius:5px; background:#0b0f14; border:1px solid var(--border); color:var(--muted); }
+  @media (max-width:640px) { main{padding:12px;} header{padding:10px 12px;} }
+</style>
+</head>
+<body>
+<header>
+  <h1>yt-dlp GUI</h1>
+  <span class="badge" id="badgeYtdlp">yt-dlp: …</span>
+  <span class="badge" id="badgeFfmpeg">ffmpeg: …</span>
+  <span class="spacer"></span>
+  <button class="sm" id="btnPauseAll">Pause queue</button>
+  <button class="sm" id="btnClearFinished">Clear finished</button>
+  <button class="sm" id="btnOpenFolder">Open folder</button>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Add download</h2>
+    <div class="row">
+      <input class="grow" type="text" id="url" placeholder="Paste a video, playlist or channel URL…" autocomplete="off" spellcheck="false">
+      <button class="primary" id="btnFetch">Fetch</button>
+    </div>
+    <div class="error hidden" id="probeError"></div>
+    <p class="hint" id="probeHint">Fetching reads metadata only — nothing is downloaded until you press Add.</p>
+  </div>
+
+  <div class="card hidden" id="cardInfo">
+    <h2>Preview</h2>
+    <div class="row" style="align-items:flex-start; gap:16px;">
+      <img id="thumb" alt="" style="max-width:220px;max-height:130px;border-radius:8px;border:1px solid var(--border);background:#0b0f14">
+      <div class="grow">
+        <div style="font-weight:600" id="infoTitle"></div>
+        <div class="jobmeta" id="infoMeta"></div>
+        <div class="pillrow" id="infoPills" style="margin-top:8px"></div>
+        <div class="row" style="margin-top:12px">
+          <button class="sm" id="btnAddVideo" style="display:none">Add this video</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card hidden" id="cardPlaylist">
+    <h2>Playlist</h2>
+    <div class="row" style="margin-bottom:10px">
+      <button class="sm" id="btnSelAll">Select all</button>
+      <button class="sm" id="btnSelNone">None</button>
+      <button class="sm" id="btnSelInvert">Invert</button>
+      <span class="spacer"></span>
+      <span class="hint" id="plCount"></span>
+      <button class="primary" id="btnAddSelected">Add selected</button>
+      <button id="btnAddAll">Add all</button>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:34px"></th><th style="width:50px">#</th><th>Title</th><th style="width:90px">Duration</th><th style="width:90px">Uploader</th></tr></thead>
+        <tbody id="plBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Options</h2>
+    <div class="grid">
+      <div class="field">
+        <label for="optPreset">Quality</label>
+        <select id="optPreset">
+          <option value="best">Best (video + audio)</option>
+          <option value="height">Best up to…</option>
+          <option value="bestaudio">Audio only</option>
+          <option value="bestvideo">Best video only</option>
+          <option value="manual">Manual format pick</option>
+        </select>
+      </div>
+      <div class="field" id="wrapHeight">
+        <label for="optHeight">Max resolution</label>
+        <select id="optHeight">
+          <option value="144">144p</option><option value="240">240p</option><option value="360">360p</option>
+          <option value="480">480p</option><option value="720">720p</option><option value="1080">1080p</option>
+          <option value="1440">1440p</option><option value="2160">2160p</option>
+        </select>
+      </div>
+      <div class="field" id="wrapAudioFmt">
+        <label for="optAudioFormat">Audio format</label>
+        <select id="optAudioFormat">
+          <option value="mp3">MP3</option><option value="m4a">M4A</option><option value="opus">Opus</option>
+          <option value="flac">FLAC</option><option value="wav">WAV</option><option value="vorbis">Vorbis</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="optContainer">Merge container</label>
+        <select id="optContainer">
+          <option value="mp4">MP4</option><option value="mkv">MKV</option><option value="webm">WebM</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="optOutDir">Output folder</label>
+        <input type="text" id="optOutDir" spellcheck="false" placeholder="…\downloads">
+      </div>
+      <div class="field">
+        <label for="optTemplate">Filename template</label>
+        <input type="text" id="optTemplate" spellcheck="false" placeholder="%(title).180B [%(id)s].%(ext)s">
+      </div>
+    </div>
+
+    <div class="field hidden" id="wrapManual">
+      <label>Manual formats</label>
+      <select id="optVideoFormat"><option value="">— pick video —</option></select>
+      <div style="height:6px"></div>
+      <select id="optAudioFormatId"><option value="">— pick audio —</option></select>
+      <p class="hint" id="manualHint">Video-only streams are merged with the selected audio stream.</p>
+    </div>
+
+    <details style="margin-bottom:12px">
+      <summary>Subtitles &amp; thumbnails</summary>
+      <div class="grid" style="margin-top:12px">
+        <label class="check"><input type="checkbox" id="optWriteSubs"> Download subtitles</label>
+        <label class="check"><input type="checkbox" id="optAutoSubs"> Include auto-generated</label>
+        <label class="check"><input type="checkbox" id="optEmbedSubs"> Embed into video</label>
+        <label class="check"><input type="checkbox" id="optWriteThumb"> Save thumbnail</label>
+        <label class="check"><input type="checkbox" id="optEmbedThumb"> Embed thumbnail</label>
+        <label class="check"><input type="checkbox" id="optEmbedMeta"> Embed metadata</label>
+        <label class="check"><input type="checkbox" id="optEmbedChapters"> Embed chapters</label>
+      </div>
+      <div class="grid" style="margin-top:12px">
+        <div class="field"><label for="optSubLangs">Subtitle languages</label><input type="text" id="optSubLangs" placeholder="en.*,en"></div>
+        <div class="field"><label for="optSubFormat">Convert subs to</label>
+          <select id="optSubFormat"><option value="srt">SRT</option><option value="vtt">VTT</option><option value="ass">ASS</option></select>
+        </div>
+      </div>
+    </details>
+
+    <details style="margin-bottom:12px">
+      <summary>Advanced</summary>
+      <div class="grid" style="margin-top:12px">
+        <div class="field"><label for="optRate">Rate limit (e.g. 2M)</label><input type="text" id="optRate" placeholder="unlimited"></div>
+        <div class="field"><label for="optConc">Concurrent fragments</label><input type="number" id="optConc" min="1" max="16" value="4"></div>
+        <div class="field"><label for="optArchive">Archive</label>
+          <select id="optArchive"><option value="0">Off</option><option value="1">Skip already downloaded</option></select>
+        </div>
+        <div class="field"><label for="optBrowser">Cookies from browser</label>
+          <select id="optBrowser"><option value="">None</option><option value="chrome">Chrome</option><option value="edge">Edge</option>
+          <option value="firefox">Firefox</option><option value="brave">Brave</option><option value="chromium">Chromium</option>
+          <option value="opera">Opera</option><option value="brave">Vivaldi</option><option value="safari">Safari</option></select>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>Queue</h2>
+    <div id="jobs"></div>
+    <div class="empty" id="jobsEmpty">Nothing queued yet.</div>
+  </div>
+
+  <div class="card">
+    <h2>Downloaded files</h2>
+    <div class="files" id="files"></div>
+    <div class="empty" id="filesEmpty">No files yet.</div>
+  </div>
+</main>
+
+<div class="toast" id="toasts"></div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const state = { jobs: [], logs: new Map(), info: null, playlist: null, system: null, settings: null, paused: false };
+
+function toast(msg, isError) {
+  const el = document.createElement('div');
+  el.textContent = msg;
+  if (isError) el.className = 'err';
+  $('toasts').appendChild(el);
+  setTimeout(() => el.remove(), isError ? 7000 : 3500);
+}
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  const ct = res.headers.get('content-type') || '';
+  const body = ct.includes('application/json') ? await res.json() : { ok: res.ok };
+  if (!res.ok || body.ok === false) throw new Error(body.error || `Request failed (${res.status})`);
+  return body;
+}
+const apiPost = (p, data) => api(p, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: data === undefined ? undefined : JSON.stringify(data),
+});
+
+function fmtBytes(n) {
+  if (!n && n !== 0) return '—';
+  const units = ['B','KB','MB','GB','TB'];
+  let i = 0, v = n;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+function fmtDuration(s) {
+  if (!s) return '—';
+  s = Math.round(s);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  const pad = (n) => String(n).padStart(2, '0');
+  return h ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
+}
+
+// ------------------------------------------------------------------ system
+
+async function loadSystem() {
+  const data = await api('/api/system');
+  state.system = data;
+  state.settings = data.settings;
+  const by = $('badgeYtdlp');
+  by.textContent = `yt-dlp: ${data.ytdlpVersion || 'not found'}`;
+  by.className = 'badge ' + (data.ytdlpFound ? 'ok' : 'bad');
+  const bf = $('badgeFfmpeg');
+  bf.textContent = `ffmpeg: ${data.ffmpegFound ? 'ready' : 'missing'}`;
+  bf.className = 'badge ' + (data.ffmpegFound ? 'ok' : 'bad');
+  if (!data.ffmpegFound) bf.title = 'Install ffmpeg to enable merging, audio extraction, thumbnails and metadata.';
+  if (!data.cookies.present) {
+    $('optBrowser').insertAdjacentHTML('afterbegin', '<option value="">None (no cookies.txt)</option>');
+  }
+  applySettingsToForm(data.settings);
+}
+
+function applySettingsToForm(s) {
+  $('optPreset').value = s.preset;
+  $('optHeight').value = String(s.maxHeight);
+  $('optAudioFormat').value = s.audioFormat;
+  $('optContainer').value = s.container;
+  $('optOutDir').value = s.outputDir;
+  $('optTemplate').value = s.filenameTemplate;
+  $('optWriteSubs').checked = !!s.writeSubs;
+  $('optAutoSubs').checked = !!s.autoSubs;
+  $('optEmbedSubs').checked = !!s.embedSubs;
+  $('optWriteThumb').checked = !!s.writeThumbnail;
+  $('optEmbedThumb').checked = !!s.embedThumbnail;
+  $('optEmbedMeta').checked = !!s.embedMetadata;
+  $('optEmbedChapters').checked = !!s.embedChapters;
+  $('optSubLangs').value = s.subLangs;
+  $('optSubFormat').value = s.subFormat;
+  $('optRate').value = s.rateLimit;
+  $('optConc').value = s.concurrentFragments;
+  $('optArchive').value = s.archiveEnabled ? '1' : '0';
+  $('optBrowser').value = s.cookiesFromBrowser;
+  syncVisibility();
+}
+
+function syncVisibility() {
+  const preset = $('optPreset').value;
+  const ff = !state.system || state.system.ffmpegFound;
+  $('wrapHeight').classList.toggle('hidden', preset !== 'height');
+  $('wrapManual').classList.toggle('hidden', preset !== 'manual');
+  $('wrapAudioFmt').classList.toggle('hidden', preset !== 'bestaudio');
+  $('optEmbedThumb').disabled = !ff || !$('optWriteThumb').checked;
+  $('optEmbedSubs').disabled = !ff;
+  $('optEmbedMeta').disabled = !ff;
+  $('optEmbedChapters').disabled = !ff;
+  $('optContainer').disabled = preset === 'bestaudio';
+}
+
+function readOptions() {
+  const preset = $('optPreset').value;
+  return {
+    preset,
+    maxHeight: Number($('optHeight').value),
+    videoFormatId: preset === 'manual' ? $('optVideoFormat').value : '',
+    audioFormatId: preset === 'manual' ? $('optAudioFormatId').value : '',
+    container: $('optContainer').value,
+    audioFormat: $('optAudioFormat').value,
+    writeSubs: $('optWriteSubs').checked,
+    autoSubs: $('optAutoSubs').checked,
+    embedSubs: $('optEmbedSubs').checked,
+    subLangs: $('optSubLangs').value,
+    subFormat: $('optSubFormat').value,
+    writeThumbnail: $('optWriteThumb').checked,
+    embedThumbnail: $('optEmbedThumb').checked,
+    embedMetadata: $('optEmbedMeta').checked,
+    embedChapters: $('optEmbedChapters').checked,
+    rateLimit: $('optRate').value,
+    concurrentFragments: Number($('optConc').value) || 4,
+    archive: $('optArchive').value === '1',
+    outputDir: $('optOutDir').value,
+    filenameTemplate: $('optTemplate').value,
+    cookiesFromBrowser: $('optBrowser').value,
+  };
+}
+
+async function persistSettings() {
+  const patch = {
+    preset: $('optPreset').value,
+    maxHeight: Number($('optHeight').value),
+    audioFormat: $('optAudioFormat').value,
+    container: $('optContainer').value,
+    outputDir: $('optOutDir').value,
+    filenameTemplate: $('optTemplate').value,
+    writeSubs: $('optWriteSubs').checked,
+    autoSubs: $('optAutoSubs').checked,
+    embedSubs: $('optEmbedSubs').checked,
+    subLangs: $('optSubLangs').value,
+    subFormat: $('optSubFormat').value,
+    writeThumbnail: $('optWriteThumb').checked,
+    embedThumbnail: $('optEmbedThumb').checked,
+    embedMetadata: $('optEmbedMeta').checked,
+    embedChapters: $('optEmbedChapters').checked,
+    rateLimit: $('optRate').value,
+    concurrentFragments: Number($('optConc').value) || 4,
+    archiveEnabled: $('optArchive').value === '1',
+    cookiesFromBrowser: $('optBrowser').value,
+  };
+  try {
+    const r = await apiPost('/api/settings', patch);
+    state.settings = r.settings;
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+// ------------------------------------------------------------------ probe
+
+async function fetchInfo() {
+  const url = $('url').value.trim();
+  if (!url) { toast('Enter a URL first.', true); return; }
+  const btn = $('btnFetch');
+  btn.disabled = true;
+  btn.textContent = 'Fetching…';
+  $('probeError').classList.add('hidden');
+  $('cardInfo').classList.add('hidden');
+  $('cardPlaylist').classList.add('hidden');
+  try {
+    const data = await apiPost('/api/probe', { url });
+    state.info = data.info;
+    renderInfo(data.info);
+    const pl = await apiPost('/api/playlist', { url, limit: 200 });
+    state.playlist = pl.items;
+    renderPlaylist(pl.items);
+  } catch (err) {
+    $('probeError').textContent = err.message;
+    $('probeError').classList.remove('hidden');
+    $('probeHint').textContent = 'Fix the URL or check that yt-dlp is installed and up to date.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Fetch';
+  }
+}
+
+function renderInfo(info) {
+  $('cardInfo').classList.remove('hidden');
+  $('thumb').src = info.thumbnail || '';
+  $('thumb').classList.toggle('hidden', !info.thumbnail);
+  $('infoTitle').textContent = info.title;
+  $('infoMeta').textContent = [info.uploader, fmtDuration(info.duration), info.extractor].filter(Boolean).join(' · ');
+  const pills = [];
+  if (info.isLive) pills.push('live');
+  const vid = info.formats.filter((f) => f.hasVideo);
+  const aud = info.formats.filter((f) => f.hasAudio);
+  if (vid.length) pills.push(`${vid.length} video formats`);
+  if (aud.length) pills.push(`${aud.length} audio formats`);
+  if (vid.length) pills.push(`up to ${Math.max(...vid.map((f) => f.height || 0))}p`);
+  $('infoPills').innerHTML = pills.map((p) => `<span class="pill">${p}</span>`).join('');
+  fillFormatSelects(info.formats);
+  $('btnAddVideo').style.display = 'inline-block';
+  $('btnAddVideo').dataset.url = info.webpageUrl || info.id;
+}
+
+function fillFormatSelects(formats) {
+  const v = $('optVideoFormat'), a = $('optAudioFormatId');
+  const keepV = v.value, keepA = a.value;
+  v.innerHTML = '<option value="">— pick video —</option>' + formats
+    .filter((f) => f.hasVideo)
+    .map((f) => `<option value="${f.format_id}">${fmtFormat(f)}</option>`).join('');
+  a.innerHTML = '<option value="">— pick audio —</option>' + formats
+    .filter((f) => f.hasAudio)
+    .map((f) => `<option value="${f.format_id}">${fmtFormat(f)}</option>`).join('');
+  v.value = keepV; a.value = keepA;
+}
+
+function fmtFormat(f) {
+  const bits = [];
+  if (f.hasVideo) {
+    bits.push(f.height ? `${f.height}p` : (f.vcodec || 'video'));
+    if (f.fps > 30) bits.push(`${Math.round(f.fps)}fps`);
+  } else if (f.hasAudio) {
+    bits.push('audio');
+  }
+  bits.push(f.ext);
+  if (f.hasAudio && f.abr) bits.push(`${Math.round(f.abr)}kbps`);
+  if (f.filesize) bits.push(fmtBytes(f.filesize));
+  if (f.note) bits.push(f.note);
+  return bits.filter(Boolean).join(' · ');
+}
+
+function renderPlaylist(items) {
+  $('cardPlaylist').classList.remove('hidden');
+  $('plBody').innerHTML = items.map((it, i) => `
+    <tr data-i="${i}">
+      <td><input type="checkbox" class="plcheck" ${i < 25 ? 'checked' : ''}></td>
+      <td>${it.index}</td>
+      <td>${escapeHtml(it.title)}</td>
+      <td>${fmtDuration(it.duration)}</td>
+      <td>${escapeHtml(it.uploader || '')}</td>
+    </tr>`).join('');
+  updatePlCount();
+  const single = items.length <= 1;
+  $('btnAddAll').classList.toggle('hidden', single);
+  $('probeHint').textContent = single
+    ? 'No playlist found — this is a single video.'
+    : `Playlist detected: ${items.length} item(s).`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function updatePlCount() {
+  const n = $('plBody').querySelectorAll('.plcheck:checked').length;
+  $('plCount').textContent = `${n} selected`;
+}
+
+function selectedItems() {
+  return [...$('plBody').querySelectorAll('tr')]
+    .filter((tr) => tr.querySelector('.plcheck').checked)
+    .map((tr) => state.playlist[Number(tr.dataset.i)]);
+}
+
+// ------------------------------------------------------------------ queue
+
+async function addItems(items) {
+  if (!items.length) { toast('Nothing selected.', true); return; }
+  const options = readOptions();
+  await persistSettings();
+  try {
+    const r = await apiPost('/api/queue', { items, options });
+    if (r.errors && r.errors.length) toast(`${r.errors.length} item(s) skipped.`, true);
+    toast(`Queued ${r.jobs.length} download(s).`);
+    $('url').value = '';
+    $('cardPlaylist').classList.add('hidden');
+    $('cardInfo').classList.add('hidden');
+    $('probeHint').textContent = 'Fetching reads metadata only — nothing is downloaded until you press Add.';
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+function renderJobs() {
+  const el = $('jobs');
+  $('jobsEmpty').classList.toggle('hidden', state.jobs.length > 0);
+  el.innerHTML = state.jobs.map((j) => {
+    const log = (state.logs.get(j.id) || []).map((l) => `<span class="${l.s === 'e' ? 'e' : ''}">${escapeHtml(l.m)}</span>`).join('\n');
+    const actions = [];
+    if (j.status === 'running' || j.status === 'queued') {
+      actions.push(`<button class="sm" data-act="pause" data-id="${j.id}">Pause</button>`);
+      actions.push(`<button class="sm danger" data-act="cancel" data-id="${j.id}">Cancel</button>`);
+    }
+    if (j.status === 'paused' || j.status === 'error' || j.status === 'cancelled') {
+      actions.push(`<button class="sm" data-act="resume" data-id="${j.id}">Resume</button>`);
+    }
+    if (j.status === 'done' && j.file) {
+      actions.push(`<button class="sm" data-act="open" data-id="${j.id}" data-path="${escapeHtml(j.file)}">Show file</button>`);
+    }
+    actions.push(`<button class="sm" data-act="remove" data-id="${j.id}">Remove</button>`);
+    const barClass = j.status === 'done' ? 'done' : j.status === 'error' ? 'error' : '';
+    const stats = [];
+    stats.push(`<span><b>${(j.percent || 0).toFixed(1)}%</b></span>`);
+    if (j.speed) stats.push(`<span>${escapeHtml(j.speed)}</span>`);
+    if (j.eta) stats.push(`<span>ETA ${escapeHtml(j.eta)}</span>`);
+    return `
+    <div class="job" data-id="${j.id}">
+      <div class="jobhead">
+        <div class="jobtitle">${escapeHtml(j.title)}
+          <div class="jobmeta">${escapeHtml(j.url)}</div>
+        </div>
+        <span class="status ${j.status}">${j.status}</span>
+      </div>
+      <div class="bar ${barClass}"><div style="width:${Math.min(100, j.percent || 0)}%"></div></div>
+      <div class="stats">${stats.join('')}${j.error ? `<span style="color:var(--red)">${escapeHtml(j.error)}</span>` : ''}</div>
+      <div class="row" style="margin-top:10px">${actions.join('')}</div>
+      <details style="margin-top:10px"><summary>Log (${j.logCount || 0} lines)</summary><pre class="log">${log}</pre></details>
+    </div>`;
+  }).join('');
+}
+
+async function jobAction(act, id, path) {
+  try {
+    if (act === 'open') return apiPost('/api/open', { path });
+    await apiPost(`/api/jobs/${id}/${act}`);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+function connectEvents() {
+  const es = new EventSource('/api/events');
+  es.addEventListener('hello', (ev) => {
+    const data = JSON.parse(ev.data);
+    state.jobs = data.jobs;
+    state.paused = data.paused;
+    $('btnPauseAll').textContent = data.paused ? 'Resume queue' : 'Pause queue';
+    state.jobs.forEach((j) => { if (!state.logs.has(j.id)) state.logs.set(j.id, []); });
+    renderJobs();
+  });
+  es.addEventListener('job', (ev) => {
+    const job = JSON.parse(ev.data);
+    const i = state.jobs.findIndex((j) => j.id === job.id);
+    if (i >= 0) state.jobs[i] = job; else state.jobs.unshift(job);
+    renderJobs();
+  });
+  es.addEventListener('log', (ev) => {
+    const { id, line } = JSON.parse(ev.data);
+    if (!state.logs.has(id)) state.logs.set(id, []);
+    const arr = state.logs.get(id);
+    arr.push(line);
+    if (arr.length > 400) arr.shift();
+    const job = state.jobs.find((j) => j.id === id);
+    if (job) job.logCount = arr.length;
+    const pre = document.querySelector(`.job[data-id="${id}"] pre.log`);
+    if (pre) { pre.textContent += `\n${line.m}`; pre.scrollTop = pre.scrollHeight; }
+    else renderJobs();
+  });
+  es.addEventListener('removed', (ev) => {
+    const { id } = JSON.parse(ev.data);
+    state.jobs = state.jobs.filter((j) => j.id !== id);
+    state.logs.delete(id);
+    renderJobs();
+  });
+  es.onerror = () => { /* browser retries automatically */ };
+}
+
+// ------------------------------------------------------------------ files
+
+async function loadFiles() {
+  try {
+    const r = await api('/api/files');
+    $('filesEmpty').classList.toggle('hidden', r.files.length > 0);
+    $('files').innerHTML = r.files.map((f) => `
+      <a href="#" data-path="${escapeHtml(f.path)}">
+        <span>${escapeHtml(f.rel)}</span>
+        <span class="sz">${fmtBytes(f.size)}</span>
+      </a>`).join('');
+  } catch { /* ignore */ }
+}
+
+// ------------------------------------------------------------------ wiring
+
+$('btnFetch').addEventListener('click', fetchInfo);
+$('url').addEventListener('keydown', (e) => { if (e.key === 'Enter') fetchInfo(); });
+$('btnAddVideo').addEventListener('click', () => {
+  if (!state.info) return;
+  addItems([{
+    url: $('btnAddVideo').dataset.url || state.info.webpageUrl,
+    title: state.info.title,
+    uploader: state.info.uploader,
+    thumbnail: state.info.thumbnail,
+    duration: state.info.duration,
+  }]);
+});
+$('btnAddSelected').addEventListener('click', () => addItems(selectedItems()));
+$('btnAddAll').addEventListener('click', () => addItems(state.playlist.slice()));
+$('btnSelAll').addEventListener('click', () => { $('plBody').querySelectorAll('.plcheck').forEach((c) => { c.checked = true; }); updatePlCount(); });
+$('btnSelNone').addEventListener('click', () => { $('plBody').querySelectorAll('.plcheck').forEach((c) => { c.checked = false; }); updatePlCount(); });
+$('btnSelInvert').addEventListener('click', () => { $('plBody').querySelectorAll('.plcheck').forEach((c) => { c.checked = !c.checked; }); updatePlCount(); });
+$('plBody').addEventListener('change', updatePlCount);
+
+$('jobs').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+  jobAction(btn.dataset.act, btn.dataset.id, btn.dataset.path);
+});
+$('files').addEventListener('click', (e) => {
+  const a = e.target.closest('a[data-path]');
+  if (!a) return;
+  e.preventDefault();
+  apiPost('/api/open', { path: a.dataset.path }).catch((err) => toast(err.message, true));
+});
+
+$('btnPauseAll').addEventListener('click', async () => {
+  state.paused = !state.paused;
+  const r = await api(`/api/queue/pause?value=${state.paused ? 1 : 0}`);
+  state.paused = r.paused;
+  $('btnPauseAll').textContent = state.paused ? 'Resume queue' : 'Pause queue';
+});
+$('btnClearFinished').addEventListener('click', async () => {
+  await apiPost('/api/queue/clear-finished');
+  await loadFiles();
+});
+$('btnOpenFolder').addEventListener('click', () => api('/api/open-folder').catch((e) => toast(e.message, true)));
+
+for (const id of ['optPreset','optHeight','optWriteThumb','optAudioFormat','optContainer','optSubLangs','optArchive','optBrowser']) {
+  $(id).addEventListener('change', () => { syncVisibility(); persistSettings(); });
+}
+for (const id of ['optOutDir','optTemplate','optRate','optConc','optSubFormat','optWriteSubs','optAutoSubs','optEmbedSubs','optEmbedThumb','optEmbedMeta','optEmbedChapters']) {
+  $(id).addEventListener('change', persistSettings);
+}
+
+setInterval(loadFiles, 8000);
+loadSystem().then(connectEvents).catch((err) => toast(err.message, true));
+loadFiles();
+</script>
+</body>
+</html>

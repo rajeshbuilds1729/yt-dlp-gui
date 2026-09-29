@@ -1,0 +1,17 @@
+{
+  "name": "yt-dlp-gui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A local web GUI for yt-dlp: format picker, playlist support, live progress and a download queue.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
